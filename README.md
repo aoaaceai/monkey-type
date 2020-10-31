@@ -2,7 +2,7 @@
 Monkey-type is a minimalistic, customisable typing test, featuring many test modes, an account system to save your typing speed history and user configurable features like themes, a smooth caret and more.
 
 # features
-- minimalistic design with no ads
+- minimalistic design without ads
 - look at what you are typing
 - focus mode
 - different test modes
