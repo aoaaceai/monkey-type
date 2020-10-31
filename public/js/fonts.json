@@ -1,11 +1,12 @@
-[{
+[
+  {
     "name": "Roboto Mono"
   },
   {
     "name": "Source Code Pro"
   },
   {
-    "name": "IBM Plex Mono"
+    "name": "IBM Plex Sans"
   },
   {
     "name": "Inconsolata"
@@ -28,5 +29,14 @@
   {
     "name": "Comic Sans MS",
     "display": "Helvetica"
+  },
+  {
+    "name": "Oxygen"
+  },
+  {
+    "name": "Nunito"
+  },
+  {
+    "name": "Itim"
   }
 ]
