@@ -12,37 +12,63 @@ let defaultConfig = {
     "#ca4754",
     "#7e2a33",
   ],
+  favThemes: [],
   showKeyTips: true,
   showLiveWpm: false,
-  showTimerBar: true,
+  showTimerProgress: true,
   smoothCaret: true,
   quickTab: false,
   punctuation: false,
+  numbers: false,
   words: 50,
-  time: 60,
+  time: 30,
   mode: "time",
+  quoteLength: 1,
   language: "english",
-  fontSize: 1,
+  fontSize: 15,
   freedomMode: false,
-  resultFilters: ["all"],
+  resultFilters: null,
   difficulty: "normal",
   blindMode: false,
   quickEnd: false,
+  // readAheadMode: false,
   caretStyle: "default",
+  paceCaretStyle: "default",
   flipTestColors: false,
+  capsLockBackspace: false,
   layout: "default",
-  showDiscordDot: true,
+  savedLayout: "default",
   confidenceMode: "off",
-  timerStyle: "bar",
-  colorfulMode: true,
-  randomTheme: false,
+  indicateTypos: false,
+  timerStyle: "text",
+  colorfulMode: false,
+  randomTheme: "off",
   timerColor: "black",
   timerOpacity: "0.25",
-  stopOnError: false,
+  stopOnError: "off",
   showAllLines: false,
   keymapMode: "off",
+  keymapStyle: "staggered",
   keymapLayout: "qwerty",
   fontFamily: "Roboto_Mono",
+  smoothLineScroll: false,
+  alwaysShowDecimalPlaces: false,
+  alwaysShowWordsHistory: false,
+  singleListCommandLine: "manual",
+  playSoundOnError: false,
+  playSoundOnClick: "off",
+  startGraphsAtZero: true,
+  swapEscAndTab: false,
+  showOutOfFocusWarning: true,
+  paceCaret: "off",
+  paceCaretCustomSpeed: 100,
+  pageWidth: "100",
+  chartAccuracy: true,
+  chartStyle: "line",
+  minWpm: "off",
+  minWpmCustomSpeed: 100,
+  highlightMode: "letter",
+  alwaysShowCPM: false,
 };
 
 let cookieConfig = null;
@@ -51,10 +77,16 @@ let config = {
   ...defaultConfig,
 };
 
+let dbConfigLoaded = false;
+let configChangedBeforeDb = false;
+
 //cookies
-function saveConfigToCookie() {
+async function saveConfigToCookie(noDbCheck = false) {
+  if (!dbConfigLoaded && !noDbCheck) {
+    // console.log('config changed before db loaded!');
+    configChangedBeforeDb = true;
+  }
   // showNotification('saving to cookie',1000);
-  if (config.freedomMode === null) config.freedomMode = false;
   let d = new Date();
   d.setFullYear(d.getFullYear() + 1);
   $.cookie("config", null);
@@ -63,24 +95,36 @@ function saveConfigToCookie() {
     path: "/",
   });
   restartCount = 0;
-  saveConfigToDB();
+  if (!noDbCheck) saveConfigToDB();
 }
 
-function saveConfigToDB() {
+async function saveConfigToDB() {
   if (firebase.auth().currentUser !== null) {
     // showNotification('saving to db',1000);
     accountIconLoading(true);
     saveConfig({ uid: firebase.auth().currentUser.uid, obj: config }).then(
       (d) => {
+        // console.log(d.data);
         accountIconLoading(false);
-        if (d.data === 1) {
+        if (d.data.returnCode === 1) {
           // showNotification('config saved to db',1000);
         } else {
-          showNotification("Error saving config to DB!", 4000);
+          showNotification(
+            `Error saving config to DB! ${d.data.message}`,
+            4000
+          );
         }
       }
     );
   }
+}
+
+function resetConfig() {
+  config = {
+    ...defaultConfig,
+  };
+  applyConfig();
+  saveConfigToCookie();
 }
 
 function saveActiveTagsToCookie() {
@@ -106,11 +150,11 @@ function loadConfigFromCookie() {
   let newConfig = $.cookie("config");
   if (newConfig !== undefined) {
     newConfig = JSON.parse(newConfig);
-
     applyConfig(newConfig);
     cookieConfig = newConfig;
-    saveConfigToCookie();
+    saveConfigToCookie(true);
   }
+  restartTest(false, true);
 }
 
 function applyConfig(configObj) {
@@ -119,42 +163,74 @@ function applyConfig(configObj) {
     setCustomTheme(configObj.customTheme, true);
     setCustomThemeColors(configObj.customThemeColors, true);
     setQuickTabMode(configObj.quickTab, true);
-    setPunctuation(configObj.punctuation, true);
     setKeyTips(configObj.showKeyTips, true);
     changeTimeConfig(configObj.time, true);
+    changeQuoteLength(configObj.quoteLength, true);
     changeWordCount(configObj.words, true);
-    changeMode(configObj.mode, true);
     changeLanguage(configObj.language, true);
-    changeLayout(configObj.layout, true);
+    setCapsLockBackspace(configObj.capsLockBackspace, true);
+    changeSavedLayout(configObj.savedLayout, true);
     changeFontSize(configObj.fontSize, true);
     setFreedomMode(configObj.freedomMode, true);
     setCaretStyle(configObj.caretStyle, true);
+    setPaceCaretStyle(configObj.paceCaretStyle, true);
     setDifficulty(configObj.difficulty, true);
     setBlindMode(configObj.blindMode, true);
     setQuickEnd(configObj.quickEnd, true);
+    // setReadAheadMode(configObj.readAheadMode, true);
     setFlipTestColors(configObj.flipTestColors, true);
-    setDiscordDot(configObj.hideDiscordDot, true);
     setColorfulMode(configObj.colorfulMode, true);
     setConfidenceMode(configObj.confidenceMode, true);
+    setIndicateTypos(configObj.indicateTypos, true);
     setTimerStyle(configObj.timerStyle, true);
     setTimerColor(configObj.timerColor, true);
     setTimerOpacity(configObj.timerOpacity, true);
     changeKeymapMode(configObj.keymapMode, true);
+    changeKeymapStyle(configObj.keymapStyle, true);
     changeKeymapLayout(configObj.keymapLayout, true);
     setFontFamily(configObj.fontFamily, true);
-    if (
-      configObj.resultFilters == null ||
-      configObj.resultFilters == undefined
-    ) {
-      configObj.resultFilters = ["all"];
-    }
-    config = configObj;
+    setSmoothCaret(configObj.smoothCaret, true);
+    setSmoothLineScroll(configObj.smoothLineScroll, true);
+    setShowLiveWpm(configObj.showLiveWpm, true);
+    setShowTimerProgress(configObj.showTimerProgress, true);
+    setAlwaysShowDecimalPlaces(configObj.alwaysShowDecimalPlaces, true);
+    setAlwaysShowWordsHistory(configObj.alwaysShowWordsHistory, true);
+    setSingleListCommandLine(configObj.singleListCommandLine, true);
+    setPlaySoundOnError(configObj.playSoundOnError, true);
+    setPlaySoundOnClick(configObj.playSoundOnClick, true);
+    setStopOnError(configObj.stopOnError, true);
+    setFavThemes(configObj.favThemes, true);
+    setRandomTheme(configObj.randomTheme, true);
+    setShowAllLines(configObj.showAllLines, true);
+    setSwapEscAndTab(configObj.swapEscAndTab, true);
+    setShowOutOfFocusWarning(configObj.showOutOfFocusWarning, true);
+    setPaceCaret(configObj.paceCaret, true);
+    setPaceCaretCustomSpeed(configObj.paceCaretCustomSpeed, true);
+    setPageWidth(configObj.pageWidth, true);
+    setChartAccuracy(configObj.chartAccuracy, true);
+    setChartStyle(configObj.chartStyle, true);
+    setMinWpm(configObj.minWpm, true);
+    setMinWpmCustomSpeed(configObj.minWpmCustomSpeed, true);
+    setNumbers(configObj.numbers, true);
+    setPunctuation(configObj.punctuation, true);
+    setHighlightMode(configObj.highlightMode, true);
+    setAlwaysShowCPM(config.alwaysShowCPM, true);
+    changeMode(configObj.mode, true);
+    config.startGraphsAtZero = configObj.startGraphsAtZero;
+    // if (
+    //   configObj.resultFilters !== null &&
+    //   configObj.resultFilters !== undefined
+    // ) {
+    //   accountFilters = configObj.resultFilters;
+    // }
+    // config = configObj;
   }
   Object.keys(defaultConfig).forEach((configKey) => {
     if (config[configKey] == undefined) {
       config[configKey] = defaultConfig[configKey];
     }
   });
+  updateTestModesNotice();
 }
 
 function loadActiveTagsFromCookie() {
@@ -176,6 +252,31 @@ function hideTestConfig() {
   $("#top .config").css("opacity", 0).addClass("hidden");
 }
 
+function setPlaySoundOnError(val, nosave) {
+  if (val == undefined) {
+    val = false;
+  }
+  config.playSoundOnError = val;
+  if (!nosave) saveConfigToCookie();
+}
+
+function setPlaySoundOnClick(val, nosave) {
+  if (val == undefined) {
+    val = "off";
+  }
+  config.playSoundOnClick = val;
+  if (clickSounds === null && config.playSoundOnClick !== "off")
+    initClickSounds();
+  if (!nosave) saveConfigToCookie();
+}
+
+function togglePlaySoundOnError() {
+  config.playSoundOnError = !config.playSoundOnError;
+  if (config.playSoundOnError == undefined) {
+    config.playSoundOnError = false;
+  }
+}
+
 //difficulty
 function setDifficulty(diff, nosave) {
   if (
@@ -185,37 +286,18 @@ function setDifficulty(diff, nosave) {
     diff = "normal";
   }
   config.difficulty = diff;
-  restartTest();
+  if (!nosave) restartTest(false, nosave);
   updateTestModesNotice();
   if (!nosave) saveConfigToCookie();
 }
 
-//blind mode
-function toggleDiscordDot() {
-  dot = !config.showDiscordDot;
-  if (dot == undefined) {
-    dot = false;
+//set fav themes
+function setFavThemes(themes, nosave) {
+  config.favThemes = themes;
+  if (!nosave) {
+    refreshThemeButtons();
+    saveConfigToCookie();
   }
-  config.showDiscordDot = dot;
-  if (!dot) {
-    $("#menu .discord").addClass("dotHidden");
-  } else {
-    $("#menu .discord").removeClass("dotHidden");
-  }
-  saveConfigToCookie();
-}
-
-function setDiscordDot(dot, nosave) {
-  if (dot == undefined) {
-    dot = false;
-  }
-  config.showDiscordDot = dot;
-  if (!dot) {
-    $("#menu .discord").addClass("dotHidden");
-  } else {
-    $("#menu .discord").removeClass("dotHidden");
-  }
-  if (!nosave) saveConfigToCookie();
 }
 
 //blind mode
@@ -238,23 +320,219 @@ function setBlindMode(blind, nosave) {
   if (!nosave) saveConfigToCookie();
 }
 
-//stoponerror
-function toggleStopOnError() {
-  soe = !config.stopOnError;
-  if (soe == undefined) {
-    soe = false;
+function updateChartAccuracy() {
+  resultHistoryChart.data.datasets[1].hidden = !config.chartAccuracy;
+  resultHistoryChart.options.scales.yAxes[1].display = config.chartAccuracy;
+  resultHistoryChart.update();
+}
+
+function updateChartStyle() {
+  if (config.chartStyle == "scatter") {
+    resultHistoryChart.data.datasets[0].showLine = false;
+    resultHistoryChart.data.datasets[1].showLine = false;
+  } else {
+    resultHistoryChart.data.datasets[0].showLine = true;
+    resultHistoryChart.data.datasets[1].showLine = true;
   }
-  config.stopOnError = soe;
-  updateTestModesNotice();
+  resultHistoryChart.update();
+}
+
+function toggleChartAccuracy() {
+  if (config.chartAccuracy) {
+    config.chartAccuracy = false;
+  } else {
+    config.chartAccuracy = true;
+  }
+  updateChartAccuracy();
   saveConfigToCookie();
 }
 
+function setChartAccuracy(chartAccuracy, nosave) {
+  if (chartAccuracy == undefined) {
+    chartAccuracy = true;
+  }
+  config.chartAccuracy = chartAccuracy;
+  updateChartAccuracy();
+  if (!nosave) saveConfigToCookie();
+}
+
+function toggleChartStyle() {
+  if (config.chartStyle == "scatter") {
+    config.chartStyle = "line";
+  } else {
+    config.chartStyle = "scatter";
+  }
+  updateChartStyle();
+  saveConfigToCookie();
+}
+
+function setChartStyle(chartStyle, nosave) {
+  if (chartStyle == undefined) {
+    chartStyle = "line";
+  }
+  config.chartStyle = chartStyle;
+  updateChartStyle();
+  if (!nosave) saveConfigToCookie();
+}
+
+//read ahead mode
+// function toggleReadAheadMode() {
+//   config.readAheadMode = !config.readAheadMode;
+//   applyReadAheadMode(config.readAheadMode);
+//   updateTestModesNotice();
+//   saveConfigToCookie();
+// }
+
+// function setReadAheadMode(readAhead, nosave) {
+//   if (readAhead == undefined) {
+//     readAhead = false;
+//   }
+//   config.readAheadMode = readAhead;
+//   applyReadAheadMode(readAhead);
+//   updateTestModesNotice();
+//   if (!nosave) saveConfigToCookie();
+// }
+
+//stoponerror
+// function toggleStopOnError() {
+//   soe = !config.stopOnError;
+//   if (soe == undefined) {
+//     soe = false;
+//   }
+//   config.stopOnError = soe;
+//   updateTestModesNotice();
+//   saveConfigToCookie();
+// }
+
 function setStopOnError(soe, nosave) {
-  if (soe == undefined) {
-    soe = false;
+  if (soe == undefined || soe === true || soe === false) {
+    soe = "off";
   }
   config.stopOnError = soe;
+  if (config.stopOnError !== "off") {
+    config.confidenceMode = "off";
+  }
   updateTestModesNotice();
+  if (!nosave) saveConfigToCookie();
+}
+
+//alwaysshowdecimal
+function toggleAlwaysShowDecimalPlaces() {
+  config.alwaysShowDecimalPlaces = !config.alwaysShowDecimalPlaces;
+  saveConfigToCookie();
+}
+
+function setAlwaysShowDecimalPlaces(val, nosave) {
+  if (val == undefined) {
+    val = false;
+  }
+  config.alwaysShowDecimalPlaces = val;
+  if (!nosave) saveConfigToCookie();
+}
+
+function toggleAlwaysShowCPM() {
+  config.alwaysShowCPM = !config.alwaysShowCPM;
+  saveConfigToCookie();
+}
+
+function setAlwaysShowCPM(val, nosave) {
+  if (val == undefined) {
+    val = false;
+  }
+  config.alwaysShowCPM = val;
+  if (!nosave) saveConfigToCookie();
+}
+
+//show out of focus warning
+function toggleShowOutOfFocusWarning() {
+  config.showOutOfFocusWarning = !config.showOutOfFocusWarning;
+  if (!config.showOutOfFocusWarning) {
+    $("#words").css("transition", "none").removeClass("blurred");
+    $(".outOfFocusWarning").addClass("hidden");
+    clearTimeouts(outOfFocusTimeouts);
+  }
+  saveConfigToCookie();
+}
+
+function setShowOutOfFocusWarning(val, nosave) {
+  if (val == undefined) {
+    val = true;
+  }
+  config.showOutOfFocusWarning = val;
+  if (!config.showOutOfFocusWarning) {
+    $("#words").css("transition", "none").removeClass("blurred");
+    $(".outOfFocusWarning").addClass("hidden");
+    clearTimeouts(outOfFocusTimeouts);
+  }
+  if (!nosave) saveConfigToCookie();
+}
+
+//swap esc and tab
+function toggleSwapEscAndTab() {
+  config.swapEscAndTab = !config.swapEscAndTab;
+  saveConfigToCookie();
+  updateKeytips();
+}
+
+function setSwapEscAndTab(val, nosave) {
+  if (val == undefined) {
+    val = false;
+  }
+  config.swapEscAndTab = val;
+  updateKeytips();
+  if (!nosave) saveConfigToCookie();
+}
+
+//pace caret
+function setPaceCaret(val, nosave) {
+  if (val == undefined) {
+    val = "off";
+  }
+  config.paceCaret = val;
+  updateTestModesNotice();
+  initPaceCaret(nosave);
+  if (!nosave) saveConfigToCookie();
+}
+
+function setPaceCaretCustomSpeed(val, nosave) {
+  if (val == undefined || Number.isNaN(parseInt(val))) {
+    val = 100;
+  }
+  config.paceCaretCustomSpeed = val;
+  if (!nosave) saveConfigToCookie();
+}
+
+//min wpm
+function setMinWpm(minwpm, nosave) {
+  if (minwpm == undefined) {
+    minwpm = "off";
+  }
+  config.minWpm = minwpm;
+  updateTestModesNotice();
+  if (!nosave) saveConfigToCookie();
+}
+
+function setMinWpmCustomSpeed(val, nosave) {
+  if (val == undefined || Number.isNaN(parseInt(val))) {
+    val = 100;
+  }
+  config.minWpmCustomSpeed = val;
+  if (!nosave) saveConfigToCookie();
+}
+
+//always show words history
+function setAlwaysShowWordsHistory(val, nosave) {
+  if (val == undefined) {
+    val = false;
+  }
+  config.alwaysShowWordsHistory = val;
+  if (!nosave) saveConfigToCookie();
+}
+
+//single list command line
+function setSingleListCommandLine(option, nosave) {
+  if (!option) option = "manual";
+  config.singleListCommandLine = option;
   if (!nosave) saveConfigToCookie();
 }
 
@@ -274,8 +552,10 @@ function setShowAllLines(sal, nosave) {
     sal = false;
   }
   config.showAllLines = sal;
-  restartTest();
-  if (!nosave) saveConfigToCookie();
+  if (!nosave) {
+    saveConfigToCookie();
+    restartTest();
+  }
 }
 
 //quickend
@@ -328,17 +608,36 @@ function toggleColorfulMode() {
   saveConfigToCookie();
 }
 
+function setPageWidth(val, nosave) {
+  if (val == null || val == undefined) {
+    val = "100";
+  }
+  config.pageWidth = val;
+  $("#centerContent").removeClass("wide125");
+  $("#centerContent").removeClass("wide150");
+  $("#centerContent").removeClass("wide200");
+  $("#centerContent").removeClass("widemax");
+
+  if (val !== "100") {
+    $("#centerContent").addClass("wide" + val);
+  }
+  if (!nosave) saveConfigToCookie();
+}
+
 function setCaretStyle(caretStyle, nosave) {
   if (caretStyle == null || caretStyle == undefined) {
     caretStyle = "default";
   }
   config.caretStyle = caretStyle;
+  $("#caret").removeClass("off");
   $("#caret").removeClass("default");
   $("#caret").removeClass("underline");
   $("#caret").removeClass("outline");
   $("#caret").removeClass("block");
 
-  if (caretStyle == "default") {
+  if (caretStyle == "off") {
+    $("#caret").addClass("off");
+  } else if (caretStyle == "default") {
     $("#caret").addClass("default");
   } else if (caretStyle == "block") {
     $("#caret").addClass("block");
@@ -347,6 +646,71 @@ function setCaretStyle(caretStyle, nosave) {
   } else if (caretStyle == "underline") {
     $("#caret").addClass("underline");
   }
+  if (!nosave) saveConfigToCookie();
+}
+
+function setPaceCaretStyle(caretStyle, nosave) {
+  if (caretStyle == null || caretStyle == undefined) {
+    caretStyle = "default";
+  }
+  config.paceCaretStyle = caretStyle;
+  $("#paceCaret").removeClass("off");
+  $("#paceCaret").removeClass("default");
+  $("#paceCaret").removeClass("underline");
+  $("#paceCaret").removeClass("outline");
+  $("#paceCaret").removeClass("block");
+
+  if (caretStyle == "off") {
+    $("#paceCaret").addClass("off");
+  } else if (caretStyle == "default") {
+    $("#paceCaret").addClass("default");
+  } else if (caretStyle == "block") {
+    $("#paceCaret").addClass("block");
+  } else if (caretStyle == "outline") {
+    $("#paceCaret").addClass("outline");
+  } else if (caretStyle == "underline") {
+    $("#paceCaret").addClass("underline");
+  }
+  if (!nosave) saveConfigToCookie();
+}
+
+function setShowTimerProgress(timer, nosave) {
+  if (timer == null || timer == undefined) {
+    timer = false;
+  }
+  config.showTimerProgress = timer;
+  if (!nosave) saveConfigToCookie();
+}
+
+function toggleShowTimerProgress() {
+  config.showTimerProgress = !config.showTimerProgress;
+  saveConfigToCookie();
+}
+
+function setShowLiveWpm(live, nosave) {
+  if (live == null || live == undefined) {
+    live = false;
+  }
+  config.showLiveWpm = live;
+  // if (config.keymapMode !== "off") {
+  //   config.keymapMode = "off";
+  // }
+  if (!nosave) saveConfigToCookie();
+}
+
+function toggleShowLiveWpm() {
+  config.showLiveWpm = !config.showLiveWpm;
+  // if (config.keymapMode !== "off") {
+  //   config.keymapMode = "off";
+  // }
+  saveConfigToCookie();
+}
+
+function setHighlightMode(mode, nosave) {
+  if (mode == null || mode == undefined) {
+    mode = "letter";
+  }
+  config.highlightMode = mode;
   if (!nosave) saveConfigToCookie();
 }
 
@@ -397,6 +761,10 @@ function toggleKeyTips() {
 
 //mode
 function changeTimeConfig(time, nosave) {
+  if (time !== null && !isNaN(time) && time >= 0) {
+  } else {
+    time = 15;
+  }
   time = parseInt(time);
   changeMode("time", nosave);
   config.time = time;
@@ -410,7 +778,27 @@ function changeTimeConfig(time, nosave) {
   if (!nosave) saveConfigToCookie();
 }
 
+//quote length
+function changeQuoteLength(len, nosave) {
+  if (len !== null && !isNaN(len) && len >= -1 && len <= 3) {
+  } else {
+    len = 1;
+  }
+  len = parseInt(len);
+  if (!nosave) changeMode("quote", nosave);
+  config.quoteLength = len;
+  $("#top .config .quoteLength .text-button").removeClass("active");
+  $(
+    "#top .config .quoteLength .text-button[quoteLength='" + len + "']"
+  ).addClass("active");
+  if (!nosave) saveConfigToCookie();
+}
+
 function changeWordCount(wordCount, nosave) {
+  if (wordCount !== null && !isNaN(wordCount) && wordCount >= 0) {
+  } else {
+    wordCount = 10;
+  }
   wordCount = parseInt(wordCount);
   changeMode("words", nosave);
   config.words = wordCount;
@@ -432,6 +820,28 @@ function setSmoothCaret(mode, nosave) {
 
 function toggleSmoothCaret() {
   config.smoothCaret = !config.smoothCaret;
+  saveConfigToCookie();
+}
+
+//startgraphsatzero
+function setStartGraphsAtZero(mode, nosave) {
+  config.startGraphsAtZero = mode;
+  if (!nosave) saveConfigToCookie();
+}
+
+// function toggleSmoothCaret() {
+//   config.smoothCaret = !config.smoothCaret;
+//   saveConfigToCookie();
+// }
+
+//linescroll
+function setSmoothLineScroll(mode, nosave) {
+  config.smoothLineScroll = mode;
+  if (!nosave) saveConfigToCookie();
+}
+
+function toggleSmoothLineScroll() {
+  config.smoothLineScroll = !config.smoothLineScroll;
   saveConfigToCookie();
 }
 
@@ -472,6 +882,27 @@ function toggleQuickTabMode() {
   saveConfigToCookie();
 }
 
+//numbers
+function setNumbers(numb, nosave) {
+  config.numbers = numb;
+  if (!config.numbers) {
+    $("#top .config .numbersMode .text-button").removeClass("active");
+  } else {
+    $("#top .config .numbersMode .text-button").addClass("active");
+  }
+  if (!nosave) saveConfigToCookie();
+}
+
+function toggleNumbers() {
+  if (config.numbers) {
+    $("#top .config .numbersMode .text-button").removeClass("active");
+  } else {
+    $("#top .config .numbersMode .text-button").addClass("active");
+  }
+  config.numbers = !config.numbers;
+  saveConfigToCookie();
+}
+
 //punctuation
 function setPunctuation(punc, nosave) {
   config.punctuation = punc;
@@ -491,6 +922,14 @@ function togglePunctuation() {
   }
   config.punctuation = !config.punctuation;
   saveConfigToCookie();
+}
+
+function previewFontFamily(font) {
+  if (font == undefined) {
+    font = "Roboto_Mono";
+  }
+  document.documentElement.style.setProperty("--font", font.replace(/_/g, " "));
+  // if (!nosave) saveConfigToCookie();
 }
 
 //font family
@@ -528,14 +967,33 @@ function setConfidenceMode(cm, nosave) {
     cm = "off";
   }
   config.confidenceMode = cm;
-  if (config.freedomMode && config.confidenceMode !== "off") {
+  if (config.confidenceMode !== "off") {
     config.freedomMode = false;
+    config.stopOnError = "off";
   }
+
   updateTestModesNotice();
   if (!nosave) saveConfigToCookie();
 }
 
-function previewTheme(name) {
+function toggleIndicateTypos() {
+  it = !config.indicateTypos;
+  if (it == undefined) {
+    it = false;
+  }
+  config.indicateTypos = it;
+  saveConfigToCookie();
+}
+
+function setIndicateTypos(it, nosave) {
+  if (it == undefined) {
+    it = false;
+  }
+  config.indicateTypos = it;
+  if (!nosave) saveConfigToCookie();
+}
+
+function previewTheme(name, setIsPreviewingVar = true) {
   if (
     (testActive || resultVisible) &&
     (config.theme === "nausea" || config.theme === "round_round_baby")
@@ -543,6 +1001,7 @@ function previewTheme(name) {
     return;
   if (resultVisible && (name === "nausea" || name === "round_round_baby"))
     return;
+  isPreviewingTheme = setIsPreviewingVar;
   $("#currentTheme").attr("href", `themes/${name}.css`);
   setTimeout(() => {
     refreshThemeColorObject();
@@ -561,6 +1020,7 @@ function setTheme(name, nosave) {
   config.theme = name;
   $(".keymap-key").attr("style", "");
   $("#currentTheme").attr("href", `themes/${name}.css`);
+  $(".current-theme").text(name.replace("_", " "));
   setTimeout(() => {
     updateFavicon(32, 14);
   }, 500);
@@ -571,33 +1031,42 @@ function setTheme(name, nosave) {
   } catch (e) {
     console.log("Analytics unavailable");
   }
+  setCustomTheme(false, true);
+  applyCustomThemeColors();
   setTimeout(() => {
+    $(".keymap-key").attr("style", "");
     refreshThemeColorObject();
     $("#metaThemeColor").attr("content", themeColors.main);
   }, 500);
   if (!nosave) saveConfigToCookie();
 }
 
+let randomTheme = null;
 function randomiseTheme() {
-  var randomList = themesList.filter(function (theme) {
-    return theme.name != "nausea" && theme.name != "round_round_baby";
+  var randomList = themesList.map((t) => {
+    return t.name;
   });
-  let randomtheme = randomList[Math.floor(Math.random() * randomList.length)];
-  setTheme(randomtheme.name, true);
+  if (config.randomTheme === "fav" && config.favThemes.length > 0)
+    randomList = config.favThemes;
+  randomTheme = randomList[Math.floor(Math.random() * randomList.length)];
+  setTheme(randomTheme, true);
 }
 
-function setRandomTheme(bool, nosave) {
-  if (bool == undefined) {
-    bool = false;
+function setRandomTheme(val, nosave) {
+  if (val === undefined || val === true || val === false) {
+    val = "off";
   }
-  config.randomTheme = bool;
+  if (val === "off") {
+    randomTheme = null;
+  }
+  config.randomTheme = val;
   if (!nosave) saveConfigToCookie();
 }
 
-function toggleRandomTheme() {
-  config.randomTheme = !config.randomTheme;
-  saveConfigToCookie();
-}
+// function toggleRandomTheme() {
+//   config.randomTheme = !config.randomTheme;
+//   saveConfigToCookie();
+// }
 
 function setCustomTheme(boolean, nosave) {
   if (boolean !== undefined) config.customTheme = boolean;
@@ -617,11 +1086,13 @@ function applyCustomThemeColors() {
   array = config.customThemeColors;
 
   if (config.customTheme === true) {
+    $(".current-theme").text("custom");
     previewTheme("serika_dark");
     colorVars.forEach((e, index) => {
       document.documentElement.style.setProperty(e, array[index]);
     });
   } else {
+    $(".current-theme").text(config.theme.replace("_", " "));
     previewTheme(config.theme);
     colorVars.forEach((e) => {
       document.documentElement.style.setProperty(e, "");
@@ -630,6 +1101,7 @@ function applyCustomThemeColors() {
   setTimeout(() => {
     refreshThemeColorObject();
     updateFavicon(32, 14);
+    $(".keymap-key").attr("style", "");
   }, 500);
 }
 
@@ -713,6 +1185,18 @@ function changeLanguage(language, nosave) {
   if (!nosave) saveConfigToCookie();
 }
 
+function setCapsLockBackspace(capsLockBackspace, nosave) {
+  if (capsLockBackspace === null || capsLockBackspace === undefined) {
+    capsLockBackspace = false;
+  }
+  config.capsLockBackspace = capsLockBackspace;
+  if (!nosave) saveConfigToCookie();
+}
+
+function toggleCapsLockBackspace() {
+  setCapsLockBackspace(!config.capsLockBackspace, false);
+}
+
 function changeLayout(layout, nosave) {
   if (layout == null || layout == undefined) {
     layout = "qwerty";
@@ -722,14 +1206,17 @@ function changeLayout(layout, nosave) {
   if (!nosave) saveConfigToCookie();
 }
 
+function changeSavedLayout(layout, nosave) {
+  if (layout == null || layout == undefined) {
+    layout = "qwerty";
+  }
+  config.savedLayout = layout;
+  changeLayout(layout, nosave);
+}
+
 function changeKeymapMode(mode, nosave) {
   if (mode == null || mode == undefined) {
     mode = "off";
-  }
-  if (mode === "off") {
-    hideKeymap();
-  } else {
-    showKeymap();
   }
   if (mode === "react") {
     $(".active-key").removeClass("active-key");
@@ -737,12 +1224,82 @@ function changeKeymapMode(mode, nosave) {
   if (mode === "next") {
     $(".keymap-key").attr("style", "");
   }
-  if (config.showLiveWpm) {
-    config.showLiveWpm = false;
-  }
   config.keymapMode = mode;
-  restartTest();
+  if (!nosave) restartTest(false, nosave);
   if (!nosave) saveConfigToCookie();
+}
+
+function changeKeymapStyle(style, nosave) {
+  $(".keymap").removeClass("matrix");
+  $(".keymap").removeClass("split");
+  $(".keymap").removeClass("split_matrix");
+
+  if (style == null || style == undefined) {
+    style = "staggered";
+  }
+
+  if (style === "matrix") {
+    $(".keymap").addClass("matrix");
+  } else if (style === "split") {
+    $(".keymap").addClass("split");
+  } else if (style === "split_matrix") {
+    $(".keymap").addClass("split_matrix");
+  }
+  // if (style === "staggered") {
+  //   $(".keymap .keymap-split-spacer").addClass("hidden");
+  //   $(".keymap .r1, .r2, .r3, .r4").removeClass("matrix");
+  //   $(".keymap .r5").removeClass("matrixSpace");
+  //   $(".keymap #KeyLeftBracket").removeClass("hide-key");
+  //   $(".keymap #KeyRightBracket").removeClass("hide-key");
+  //   $(".keymap #KeyQuote").removeClass("hide-key");
+  // }
+  // if (style === "split") {
+  //   $(".keymap .keymap-split-spacer").removeClass("hidden");
+  //   $(".keymap .r1, .keymap .r2, .keymap .r3, .keymap .r4").removeClass(
+  //     "matrix"
+  //   );
+  //   $(".keymap .r5").removeClass("splitSpace");
+  //   $(".keymap #KeyLeftBracket").removeClass("hide-key");
+  //   $(".keymap #KeyRightBracket").removeClass("hide-key");
+  //   $(".keymap #KeyQuote").removeClass("hide-key");
+  // }
+  // if (style === "matrix") {
+  //   $(".keymap .keymap-split-spacer").addClass("hidden");
+  //   $(".keymap .r1, .keymap .r2, .keymap .r3, .keymap .r4").addClass("matrix");
+  //   $(".keymap .r5").addClass("matrixSpace");
+  //   $(".keymap #KeyLeftBracket").addClass("hide-key");
+  //   $(".keymap #KeyRightBracket").addClass("hide-key");
+  //   $(".keymap #KeyQuote").addClass("hide-key");
+  // }
+  config.keymapStyle = style;
+  if (!nosave) saveConfigToCookie();
+}
+
+// function toggleISOKeymap() {
+//   val = !config.isoKeymap;
+//   if (val == undefined) {
+//     val = false;
+//   }
+//   config.isoKeymap = val;
+//   updateKeymapBottomRow();
+//   saveConfigToCookie();
+// }
+
+// function setISOKeymap(val, nosave) {
+//   if (val == undefined) {
+//     val = false;
+//   }
+//   config.isoKeymap = val;
+//   updateKeymapBottomRow();
+//   if (!nosave) saveConfigToCookie();
+// }
+
+function keymapShowIsoKey(tf) {
+  if (tf) {
+    $(".keymap .r4 .keymap-key.first").removeClass("hidden-key");
+  } else {
+    $(".keymap .r4 .keymap-key.first").addClass("hidden-key");
+  }
 }
 
 function changeKeymapLayout(layout, nosave) {
@@ -754,17 +1311,28 @@ function changeKeymapLayout(layout, nosave) {
   // layouts[layout].forEach((x) => {
   //   console.log(x);
   // });
+  try {
+    if (layouts[layout].keymapShowTopRow) {
+      $(".keymap .r1").removeClass("hidden");
+    } else {
+      $(".keymap .r1").addClass("hidden");
+    }
 
-  var toReplace = layouts[layout].slice(13, 47);
-  var _ = toReplace.splice(12, 1);
-  var count = 0;
+    $($(".keymap .r5 .keymap-key .letter")[0]).text(layout.replace(/_/g, " "));
 
-  $(".letter")
-    .map(function () {
-      if (
-        !this.parentElement.classList.contains("hidden-key") &&
-        !this.classList.contains("hidden-key")
-      ) {
+    keymapShowIsoKey(layouts[layout].iso);
+
+    var toReplace = layouts[layout].keys.slice(1, 48);
+    // var _ = toReplace.splice(12, 1);
+    var count = 0;
+
+    $(".keymap .letter")
+      .map(function () {
+        // if (
+        //   !this.parentElement.classList.contains("hidden-key") &&
+        //   !this.classList.contains("hidden-key")
+        // ) {
+
         if (count < toReplace.length) {
           var key = toReplace[count].charAt(0);
           this.innerHTML = key;
@@ -810,10 +1378,15 @@ function changeKeymapLayout(layout, nosave) {
           }
         }
         count++;
-      }
-    })
-    .get();
-
+        // }
+      })
+      .get();
+  } catch (e) {
+    console.log(
+      "something went wrong when changing layout, resettings: " + e.message
+    );
+    changeKeymapLayout("qwerty", true);
+  }
   // console.log(all.join());
 }
 
@@ -824,21 +1397,35 @@ function changeFontSize(fontSize, nosave) {
   // $("#words").stop(true, true).animate({ opacity: 0 }, 125, e => {
   config.fontSize = fontSize;
   $("#words").removeClass("size125");
-  $("#caret").removeClass("size125");
+  $("#caret, #paceCaret").removeClass("size125");
   $("#words").removeClass("size15");
-  $("#caret").removeClass("size15");
+  $("#caret, #paceCaret").removeClass("size15");
   $("#words").removeClass("size2");
-  $("#caret").removeClass("size2");
+  $("#caret, #paceCaret").removeClass("size2");
+  $("#words").removeClass("size3");
+  $("#caret, #paceCaret").removeClass("size3");
+
+  $("#miniTimerAndLiveWpm").removeClass("size125");
+  $("#miniTimerAndLiveWpm").removeClass("size15");
+  $("#miniTimerAndLiveWpm").removeClass("size2");
+  $("#miniTimerAndLiveWpm").removeClass("size3");
 
   if (fontSize == 125) {
     $("#words").addClass("size125");
-    $("#caret").addClass("size125");
+    $("#caret, #paceCaret").addClass("size125");
+    $("#miniTimerAndLiveWpm").addClass("size125");
   } else if (fontSize == 15) {
     $("#words").addClass("size15");
-    $("#caret").addClass("size15");
+    $("#caret, #paceCaret").addClass("size15");
+    $("#miniTimerAndLiveWpm").addClass("size15");
   } else if (fontSize == 2) {
     $("#words").addClass("size2");
-    $("#caret").addClass("size2");
+    $("#caret, #paceCaret").addClass("size2");
+    $("#miniTimerAndLiveWpm").addClass("size2");
+  } else if (fontSize == 3) {
+    $("#words").addClass("size3");
+    $("#caret, #paceCaret").addClass("size3");
+    $("#miniTimerAndLiveWpm").addClass("size3");
   }
   if (!nosave) saveConfigToCookie();
   // restartTest();

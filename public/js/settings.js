@@ -1,30 +1,281 @@
-function updateSettingsPage() {
-  let themesEl = $(".pageSettings .section.themes .buttons").empty();
-  themesList.forEach((theme) => {
-    themesEl.append(
-      `<div class="theme button" theme='${theme.name}' style="color:${
-        theme.textColor
-      };background:${theme.bgColor}">${theme.name.replace(/_/g, " ")}</div>`
-    );
-  });
-
-  let langEl = $(".pageSettings .section.languages .buttons").empty();
-  Object.keys(words).forEach((language) => {
-    if (language === "english_10k") return;
-    langEl.append(
-      `<div class="language button" language='${language}'>${language.replace(
-        "_",
-        " "
-      )}</div>`
-    );
-    if (language === "english_expanded") {
-      langEl.append(
-        `<div class="language button" language='english_10k'>english 10k</div>`
-      );
+class SettingsGroup {
+  constructor(
+    configName,
+    toggleFunction,
+    setCallback = null,
+    updateCallback = null
+  ) {
+    this.configName = configName;
+    this.configValue = config[configName];
+    if (this.configValue === true || this.configValue === false) {
+      this.onOff = true;
+    } else {
+      this.onOff = false;
     }
+    this.toggleFunction = toggleFunction;
+    this.setCallback = setCallback;
+    this.updateCallback = updateCallback;
+
+    this.updateButton();
+
+    $(document).on(
+      "click",
+      `.pageSettings .section.${this.configName} .button`,
+      (e) => {
+        if (this.onOff) {
+          if ($(e.currentTarget).hasClass("on")) {
+            this.toggleFunction(true);
+          } else {
+            this.toggleFunction(false);
+          }
+          this.updateButton();
+          if (this.setCallback !== null) this.setCallback();
+        } else {
+          let value = $(e.currentTarget).attr(configName);
+          let params = $(e.currentTarget).attr("params");
+          if (params === undefined) {
+            this.toggleFunction(value);
+          } else {
+            this.toggleFunction(value, ...params);
+          }
+          this.updateButton();
+          if (this.setCallback !== null) this.setCallback();
+        }
+      }
+    );
+  }
+
+  updateButton() {
+    this.configValue = config[this.configName];
+    $(`.pageSettings .section.${this.configName} .button`).removeClass(
+      "active"
+    );
+    if (this.onOff) {
+      let onoffstring;
+      if (this.configValue) {
+        onoffstring = "on";
+      } else {
+        onoffstring = "off";
+      }
+      $(
+        `.pageSettings .section.${this.configName} .buttons .button.${onoffstring}`
+      ).addClass("active");
+    } else {
+      $(
+        `.pageSettings .section.${this.configName} .button[${this.configName}='${this.configValue}']`
+      ).addClass("active");
+    }
+    if (this.updateCallback !== null) this.updateCallback();
+  }
+}
+
+let settingsGroups = {};
+
+settingsGroups.smoothCaret = new SettingsGroup("smoothCaret", setSmoothCaret);
+settingsGroups.difficulty = new SettingsGroup("difficulty", setDifficulty);
+settingsGroups.quickTab = new SettingsGroup("quickTab", setQuickTabMode);
+settingsGroups.showLiveWpm = new SettingsGroup(
+  "showLiveWpm",
+  setShowLiveWpm,
+  () => {
+    settingsGroups.keymapMode.updateButton();
+  }
+);
+settingsGroups.showTimerProgress = new SettingsGroup(
+  "showTimerProgress",
+  setShowTimerProgress
+);
+settingsGroups.keymapMode = new SettingsGroup(
+  "keymapMode",
+  changeKeymapMode,
+  () => {
+    settingsGroups.showLiveWpm.updateButton();
+  },
+  () => {
+    if (config.keymapMode === "off") {
+      $(".pageSettings .section.keymapStyle").addClass("hidden");
+      $(".pageSettings .section.keymapLayout").addClass("hidden");
+    } else {
+      $(".pageSettings .section.keymapStyle").removeClass("hidden");
+      $(".pageSettings .section.keymapLayout").removeClass("hidden");
+    }
+  }
+);
+settingsGroups.keymapMatrix = new SettingsGroup(
+  "keymapStyle",
+  changeKeymapStyle
+);
+settingsGroups.keymapLayout = new SettingsGroup(
+  "keymapLayout",
+  changeKeymapLayout
+);
+settingsGroups.showKeyTips = new SettingsGroup(
+  "showKeyTips",
+  setKeyTips,
+  null,
+  () => {
+    if (config.showKeyTips) {
+      $(".pageSettings .tip").removeClass("hidden");
+    } else {
+      $(".pageSettings .tip").addClass("hidden");
+    }
+  }
+);
+settingsGroups.freedomMode = new SettingsGroup(
+  "freedomMode",
+  setFreedomMode,
+  () => {
+    settingsGroups.confidenceMode.updateButton();
+  }
+);
+settingsGroups.confidenceMode = new SettingsGroup(
+  "confidenceMode",
+  setConfidenceMode,
+  () => {
+    settingsGroups.freedomMode.updateButton();
+    settingsGroups.stopOnError.updateButton();
+  }
+);
+settingsGroups.indicateTypos = new SettingsGroup(
+  "indicateTypos",
+  setIndicateTypos
+);
+settingsGroups.blindMode = new SettingsGroup("blindMode", setBlindMode);
+settingsGroups.quickEnd = new SettingsGroup("quickEnd", setQuickEnd);
+// settingsGroups.readAheadMode = new SettingsGroup(
+//   "readAheadMode",
+//   setReadAheadMode
+// );
+settingsGroups.alwaysShowWordsHistory = new SettingsGroup(
+  "alwaysShowWordsHistory",
+  setAlwaysShowWordsHistory
+);
+settingsGroups.singleListCommandLine = new SettingsGroup(
+  "singleListCommandLine",
+  setSingleListCommandLine
+);
+settingsGroups.flipTestColors = new SettingsGroup(
+  "flipTestColors",
+  setFlipTestColors
+);
+settingsGroups.swapEscAndTab = new SettingsGroup(
+  "swapEscAndTab",
+  setSwapEscAndTab
+);
+settingsGroups.showOutOfFocusWarning = new SettingsGroup(
+  "showOutOfFocusWarning",
+  setShowOutOfFocusWarning
+);
+settingsGroups.colorfulMode = new SettingsGroup(
+  "colorfulMode",
+  setColorfulMode
+);
+settingsGroups.startGraphsAtZero = new SettingsGroup(
+  "startGraphsAtZero",
+  setStartGraphsAtZero
+);
+settingsGroups.randomTheme = new SettingsGroup("randomTheme", setRandomTheme);
+settingsGroups.stopOnError = new SettingsGroup(
+  "stopOnError",
+  setStopOnError,
+  () => {
+    settingsGroups.confidenceMode.updateButton();
+  }
+);
+settingsGroups.playSoundOnError = new SettingsGroup(
+  "playSoundOnError",
+  setPlaySoundOnError
+);
+settingsGroups.playSoundOnClick = new SettingsGroup(
+  "playSoundOnClick",
+  setPlaySoundOnClick,
+  () => {
+    if (config.playSoundOnClick !== "off")
+      // clickSounds[config.playSoundOnClick][0].sounds[0].play();
+      playClickSound();
+  }
+);
+settingsGroups.showAllLines = new SettingsGroup(
+  "showAllLines",
+  setShowAllLines
+);
+settingsGroups.paceCaret = new SettingsGroup("paceCaret", setPaceCaret, () => {
+  if (config.paceCaret === "custom") {
+    $(
+      ".pageSettings .section.paceCaret input.customPaceCaretSpeed"
+    ).removeClass("hidden");
+  } else {
+    $(".pageSettings .section.paceCaret input.customPaceCaretSpeed").addClass(
+      "hidden"
+    );
+  }
+});
+settingsGroups.minWpm = new SettingsGroup("minWpm", setMinWpm, () => {
+  if (config.minWpm === "custom") {
+    $(".pageSettings .section.minWpm input.customMinWpmSpeed").removeClass(
+      "hidden"
+    );
+  } else {
+    $(".pageSettings .section.minWpm input.customMinWpmSpeed").addClass(
+      "hidden"
+    );
+  }
+});
+settingsGroups.smoothLineScroll = new SettingsGroup(
+  "smoothLineScroll",
+  setSmoothLineScroll
+);
+settingsGroups.capsLockBackspace = new SettingsGroup(
+  "capsLockBackspace",
+  setCapsLockBackspace
+);
+settingsGroups.layout = new SettingsGroup("layout", changeSavedLayout);
+settingsGroups.language = new SettingsGroup("language", changeLanguage);
+settingsGroups.fontSize = new SettingsGroup("fontSize", changeFontSize);
+settingsGroups.pageWidth = new SettingsGroup("pageWidth", setPageWidth);
+settingsGroups.caretStyle = new SettingsGroup("caretStyle", setCaretStyle);
+settingsGroups.paceCaretStyle = new SettingsGroup(
+  "paceCaretStyle",
+  setPaceCaretStyle
+);
+settingsGroups.timerStyle = new SettingsGroup("timerStyle", setTimerStyle);
+settingsGroups.highlighteMode = new SettingsGroup(
+  "highlightMode",
+  setHighlightMode
+);
+settingsGroups.timerOpacity = new SettingsGroup(
+  "timerOpacity",
+  setTimerOpacity
+);
+settingsGroups.timerColor = new SettingsGroup("timerColor", setTimerColor);
+settingsGroups.fontFamily = new SettingsGroup("fontFamily", setFontFamily);
+settingsGroups.alwaysShowDecimalPlaces = new SettingsGroup(
+  "alwaysShowDecimalPlaces",
+  setAlwaysShowDecimalPlaces
+);
+settingsGroups.alwaysShowCPM = new SettingsGroup(
+  "alwaysShowCPM",
+  setAlwaysShowCPM
+);
+
+fillSettingsPage();
+
+async function fillSettingsPage() {
+  refreshThemeButtons();
+
+  let langEl = $(".pageSettings .section.language .buttons").empty();
+  getLanguageList().then((languages) => {
+    languages.forEach((language) => {
+      langEl.append(
+        `<div class="language button" language='${language}'>${language.replace(
+          "_",
+          " "
+        )}</div>`
+      );
+    });
   });
 
-  let layoutEl = $(".pageSettings .section.layouts .buttons").empty();
+  let layoutEl = $(".pageSettings .section.layout .buttons").empty();
   Object.keys(layouts).forEach((layout) => {
     layoutEl.append(
       `<div class="layout button" layout='${layout}'>${layout.replace(
@@ -38,7 +289,7 @@ function updateSettingsPage() {
   Object.keys(layouts).forEach((layout) => {
     if (layout.toString() != "default") {
       keymapEl.append(
-        `<div class="layout button" layout='${layout}'>${layout.replace(
+        `<div class="layout button" keymapLayout='${layout}'>${layout.replace(
           "_",
           " "
         )}</div>`
@@ -48,78 +299,131 @@ function updateSettingsPage() {
 
   let funboxEl = $(".pageSettings .section.funbox .buttons").empty();
   funboxEl.append(`<div class="funbox button" funbox='none'>none</div>`);
-  funboxList.forEach((funbox) => {
-    if (funbox.name === "mirror") {
-      funboxEl.append(
-        `<div class="funbox button" funbox='${funbox.name}' type="${
-          funbox.type
-        }" style="transform:scaleX(-1);">${funbox.name.replace(
-          /_/g,
-          " "
-        )}</div>`
-      );
-    } else {
-      funboxEl.append(
-        `<div class="funbox button" funbox='${funbox.name}' type="${
-          funbox.type
-        }">${funbox.name.replace(/_/g, " ")}</div>`
-      );
-    }
+  getFunboxList().then((funboxModes) => {
+    funboxModes.forEach((funbox) => {
+      if (funbox.name === "mirror") {
+        funboxEl.append(
+          `<div class="funbox button" funbox='${funbox.name}' aria-label="${
+            funbox.info
+          }" data-balloon-pos="up" data-balloon-length="fit" type="${
+            funbox.type
+          }" style="transform:scaleX(-1);">${funbox.name.replace(
+            /_/g,
+            " "
+          )}</div>`
+        );
+      } else {
+        funboxEl.append(
+          `<div class="funbox button" funbox='${funbox.name}' aria-label="${
+            funbox.info
+          }" data-balloon-pos="up" data-balloon-length="fit" type="${
+            funbox.type
+          }">${funbox.name.replace(/_/g, " ")}</div>`
+        );
+      }
+    });
   });
 
   let fontsEl = $(".pageSettings .section.fontFamily .buttons").empty();
-  fontsList.forEach((font) => {
-    fontsEl.append(
-      `<div class="button" style="font-family:${
-        font.display !== undefined ? font.display : font.name
-      }" fontFamily="${font.name.replace(/ /g, "_")}" tabindex="0"
-      onclick="this.blur();">${
-        font.display !== undefined ? font.display : font.name
-      }</div>`
-    );
+  getFontsList().then((fonts) => {
+    fonts.forEach((font) => {
+      fontsEl.append(
+        `<div class="button" style="font-family:${
+          font.display !== undefined ? font.display : font.name
+        }" fontFamily="${font.name.replace(/ /g, "_")}" tabindex="0"
+        onclick="this.blur();">${
+          font.display !== undefined ? font.display : font.name
+        }</div>`
+      );
+    });
+  });
+}
+
+function refreshThemeButtons() {
+  let favThemesEl = $(
+    ".pageSettings .section.themes .favThemes.buttons"
+  ).empty();
+  let themesEl = $(".pageSettings .section.themes .allThemes.buttons").empty();
+
+  let activeThemeName = config.theme;
+  if (config.randomTheme !== "off" && randomTheme !== null) {
+    activeThemeName = randomTheme;
+  }
+
+  getSortedThemesList().then((themes) => {
+    //first show favourites
+    if (config.favThemes.length > 0) {
+      favThemesEl.css({ paddingBottom: "1rem" });
+      themes.forEach((theme) => {
+        if (config.favThemes.includes(theme.name)) {
+          let activeTheme = activeThemeName === theme.name ? "active" : "";
+          favThemesEl.append(
+            `<div class="theme button" theme='${theme.name}' style="color:${
+              theme.textColor
+            };background:${theme.bgColor}">
+          <div class="activeIndicator ${activeTheme}"><i class="fas fa-circle"></i></div>
+          <div class="text">${theme.name.replace(/_/g, " ")}</div>
+          <div class="favButton active"><i class="fas fa-star"></i></div></div>`
+          );
+        }
+      });
+    } else {
+      favThemesEl.css({ paddingBottom: "0" });
+    }
+    //then the rest
+    themes.forEach((theme) => {
+      if (!config.favThemes.includes(theme.name)) {
+        let activeTheme = activeThemeName === theme.name ? "active" : "";
+        themesEl.append(
+          `<div class="theme button" theme='${theme.name}' style="color:${
+            theme.textColor
+          };background:${theme.bgColor}">
+          <div class="activeIndicator ${activeTheme}"><i class="fas fa-circle"></i></div>
+          <div class="text">${theme.name.replace(/_/g, " ")}</div>
+          <div class="favButton"><i class="far fa-star"></i></div></div>`
+        );
+      }
+    });
+  });
+}
+
+function updateSettingsPage() {
+  Object.keys(settingsGroups).forEach((group) => {
+    settingsGroups[group].updateButton();
   });
 
   refreshTagsSettingsSection();
-
-  setSettingsButton("smoothCaret", config.smoothCaret);
-  setSettingsButton("quickTab", config.quickTab);
-  setSettingsButton("liveWpm", config.showLiveWpm);
-  setSettingsButton("timerBar", config.showTimerBar);
-  setSettingsButton("keymap-toggle", config.keymap);
-  setSettingsButton("keyTips", config.showKeyTips);
-  setSettingsButton("freedomMode", config.freedomMode);
-  setSettingsButton("blindMode", config.blindMode);
-  setSettingsButton("quickEnd", config.quickEnd);
-  setSettingsButton("flipTestColors", config.flipTestColors);
-  setSettingsButton("discordDot", config.showDiscordDot);
-  setSettingsButton("colorfulMode", config.colorfulMode);
-  setSettingsButton("randomTheme", config.randomTheme);
-  setSettingsButton("stopOnError", config.stopOnError);
-  setSettingsButton("showAllLines", config.showAllLines);
-
   setActiveFunboxButton();
-  setActiveLayoutButton();
   setActiveThemeButton();
-  setActiveLanguageButton();
-  setActiveFontSizeButton();
-  setActiveDifficultyButton();
-  setActiveCaretStyleButton();
-  setActiveTimerStyleButton();
-  setActiveTimerColorButton();
-  setActiveTimerOpacityButton();
   setActiveThemeTab();
   setCustomThemeInputs();
-  setActiveConfidenceModeButton();
-  setActiveFontFamilyButton();
-  setActiveKeymapModeButton();
-  setActiveKeymapLayoutButton();
-
   updateDiscordSettingsSection();
+  refreshThemeButtons();
 
-  if (config.showKeyTips) {
-    $(".pageSettings .tip").removeClass("hidden");
+  if (config.paceCaret === "custom") {
+    $(
+      ".pageSettings .section.paceCaret input.customPaceCaretSpeed"
+    ).removeClass("hidden");
+    $(".pageSettings .section.paceCaret input.customPaceCaretSpeed").val(
+      config.paceCaretCustomSpeed
+    );
   } else {
-    $(".pageSettings .tip").addClass("hidden");
+    $(".pageSettings .section.paceCaret input.customPaceCaretSpeed").addClass(
+      "hidden"
+    );
+  }
+
+  if (config.minWpm === "custom") {
+    $(".pageSettings .section.minWpm input.customMinWpmSpeed").removeClass(
+      "hidden"
+    );
+    $(".pageSettings .section.minWpm input.customMinWpmSpeed").val(
+      config.minWpmCustomSpeed
+    );
+  } else {
+    $(".pageSettings .section.minWpm input.customMinWpmSpeed").addClass(
+      "hidden"
+    );
   }
 }
 
@@ -187,8 +491,63 @@ $("#customThemeShare .button").click((e) => {
 });
 
 $("#shareCustomThemeButton").click((e) => {
-  showCustomThemeShare();
+  // showCustomThemeShare();
+
+  if (e.shiftKey) {
+    showCustomThemeShare();
+  } else {
+    let share = [];
+    $.each(
+      $(".pageSettings .section.customTheme [type='color']"),
+      (index, element) => {
+        share.push($(element).attr("value"));
+      }
+    );
+
+    let url =
+      "https://monkeytype.com?" + objectToQueryString({ customTheme: share });
+    navigator.clipboard.writeText(url).then(
+      function () {
+        showNotification("URL Copied to clipboard", 2000);
+      },
+      function (err) {
+        showNotification(
+          "Something went wrong when copying the URL: " + err,
+          5000
+        );
+      }
+    );
+  }
 });
+
+function toggleFavouriteTheme(themename) {
+  if (config.favThemes.includes(themename)) {
+    //already favourite, remove
+    config.favThemes = config.favThemes.filter((t) => {
+      if (t !== themename) {
+        return t;
+      }
+    });
+  } else {
+    //add to favourites
+    config.favThemes.push(themename);
+  }
+  saveConfigToCookie();
+  refreshThemeButtons();
+  showFavouriteThemesAtTheTop();
+}
+
+function showAccountSettingsSection() {
+  $(`.sectionGroupTitle[group='account']`).removeClass("hidden");
+  $(`.settingsGroup.account`).removeClass("hidden");
+  refreshTagsSettingsSection();
+  updateDiscordSettingsSection();
+}
+
+function hideAccountSettingsSection() {
+  $(`.sectionGroupTitle[group='account']`).addClass("hidden");
+  $(`.settingsGroup.account`).addClass("hidden");
+}
 
 function refreshTagsSettingsSection() {
   if (firebase.auth().currentUser !== null && dbSnapshot !== null) {
@@ -196,29 +555,29 @@ function refreshTagsSettingsSection() {
     dbSnapshot.tags.forEach((tag) => {
       if (tag.active === true) {
         tagsEl.append(`
-            
-                <div class="tag" id="${tag.id}">
-                    <div class="active" active="true">
-                        <i class="fas fa-check-square"></i>
-                    </div>
-                    <div class="title">${tag.name}</div>
-                    <div class="editButton"><i class="fas fa-pen"></i></div>
-                    <div class="removeButton"><i class="fas fa-trash"></i></div>
-                </div>
-            
+          
+              <div class="tag" id="${tag.id}">
+                  <div class="active" active="true">
+                      <i class="fas fa-check-square"></i>
+                  </div>
+                  <div class="title">${tag.name}</div>
+                  <div class="editButton"><i class="fas fa-pen"></i></div>
+                  <div class="removeButton"><i class="fas fa-trash"></i></div>
+              </div>
+          
             `);
       } else {
         tagsEl.append(`
-            
-                <div class="tag" id="${tag.id}">
-                    <div class="active" active="false">
-                        <i class="fas fa-square"></i>
-                    </div>
-                    <div class="title">${tag.name}</div>
-                    <div class="editButton"><i class="fas fa-pen"></i></div>
-                    <div class="removeButton"><i class="fas fa-trash"></i></div>
-                </div>
-            
+          
+              <div class="tag" id="${tag.id}">
+                  <div class="active" active="false">
+                      <i class="fas fa-square"></i>
+                  </div>
+                  <div class="title">${tag.name}</div>
+                  <div class="editButton"><i class="fas fa-pen"></i></div>
+                  <div class="removeButton"><i class="fas fa-trash"></i></div>
+              </div>
+          
             `);
       }
     });
@@ -230,7 +589,7 @@ function refreshTagsSettingsSection() {
 
 function setActiveFunboxButton() {
   $(`.pageSettings .section.funbox .button`).removeClass("active");
-  $(`.pageSettings .section.funbox .button[funbox=${activeFunBox}]`).addClass(
+  $(`.pageSettings .section.funbox .button[funbox='${activeFunBox}']`).addClass(
     "active"
   );
 }
@@ -244,12 +603,14 @@ function setActiveThemeButton() {
 
 function setActiveThemeTab() {
   config.customTheme === true
-    ? $("[tab='custom']").click()
-    : $("[tab='preset']").click();
+    ? $(".pageSettings .section.themes .tabs .button[tab='custom']").click()
+    : $(".pageSettings .section.themes .tabs .button[tab='preset']").click();
 }
 
 function setCustomThemeInputs() {
-  $("[type=color]").each((n, index) => {
+  $(
+    ".pageSettings .section.themes .tabContainer .customTheme input[type=color]"
+  ).each((n, index) => {
     let currentColor =
       config.customThemeColors[colorVars.indexOf($(index).attr("id"))];
     $(index).val(currentColor);
@@ -258,136 +619,7 @@ function setCustomThemeInputs() {
   });
 }
 
-function setActiveKeymapModeButton() {
-  $(`.pageSettings .section.keymapMode .button`).removeClass("active");
-  $(
-    `.pageSettings .section.keymapMode .button[keymapMode="${config.keymapMode}"]`
-  ).addClass("active");
-  if (config.keymapMode === "off") {
-    $(".pageSettings .section.keymapLayout").addClass("hidden");
-  } else {
-    $(".pageSettings .section.keymapLayout").removeClass("hidden");
-  }
-}
-
-function setActiveKeymapLayoutButton() {
-  $(`.pageSettings .section.keymapLayout .layout`).removeClass("active");
-  $(
-    `.pageSettings .section.keymapLayout .layout[layout=${config.keymapLayout}]`
-  ).addClass("active");
-}
-
-function setActiveLayoutButton() {
-  $(`.pageSettings .section.layouts .layout`).removeClass("active");
-  $(`.pageSettings .section.layouts .layout[layout=${config.layout}]`).addClass(
-    "active"
-  );
-}
-
-function setActiveFontSizeButton() {
-  $(`.pageSettings .section.fontSize .buttons .button`).removeClass("active");
-  $(
-    `.pageSettings .section.fontSize .buttons .button[fontsize=` +
-      config.fontSize +
-      `]`
-  ).addClass("active");
-}
-
-function setActiveDifficultyButton() {
-  $(`.pageSettings .section.difficulty .buttons .button`).removeClass("active");
-  $(
-    `.pageSettings .section.difficulty .buttons .button[difficulty=` +
-      config.difficulty +
-      `]`
-  ).addClass("active");
-}
-
-function setActiveLanguageButton() {
-  $(`.pageSettings .section.languages .language`).removeClass("active");
-  $(
-    `.pageSettings .section.languages .language[language=${config.language}]`
-  ).addClass("active");
-}
-
-function setActiveCaretStyleButton() {
-  $(`.pageSettings .section.caretStyle .buttons .button`).removeClass("active");
-  $(
-    `.pageSettings .section.caretStyle .buttons .button[caret=` +
-      config.caretStyle +
-      `]`
-  ).addClass("active");
-}
-
-function setActiveTimerStyleButton() {
-  $(`.pageSettings .section.timerStyle .buttons .button`).removeClass("active");
-  $(
-    `.pageSettings .section.timerStyle .buttons .button[timer=` +
-      config.timerStyle +
-      `]`
-  ).addClass("active");
-}
-
-function setActiveTimerColorButton() {
-  $(`.pageSettings .section.timerColor .buttons .button`).removeClass("active");
-  $(
-    `.pageSettings .section.timerColor .buttons .button[color=` +
-      config.timerColor +
-      `]`
-  ).addClass("active");
-}
-
-function setActiveTimerOpacityButton() {
-  $(`.pageSettings .section.timerOpacity .buttons .button`).removeClass(
-    "active"
-  );
-  $(
-    `.pageSettings .section.timerOpacity .buttons .button[opacity="` +
-      config.timerOpacity +
-      `"]`
-  ).addClass("active");
-}
-
-function setSettingsButton(buttonSection, tf) {
-  if (tf) {
-    $(
-      ".pageSettings .section." + buttonSection + " .buttons .button.on"
-    ).addClass("active");
-    $(
-      ".pageSettings .section." + buttonSection + " .buttons .button.off"
-    ).removeClass("active");
-  } else {
-    $(
-      ".pageSettings .section." + buttonSection + " .buttons .button.off"
-    ).addClass("active");
-    $(
-      ".pageSettings .section." + buttonSection + " .buttons .button.on"
-    ).removeClass("active");
-  }
-}
-
 function showActiveTags() {
-  // activeTags = [];
-  // tagsString = "";
-  // $.each($('.pageSettings .section.tags .tagsList .tag'), (index, tag) => {
-  //     if($(tag).children('.active').attr('active') === 'true'){
-  //         activeTags.push($(tag).attr('id'));
-  //         tagsString += $(tag).children('.title').text() + ', ';
-  //     }
-  // })
-  // updateTestModesNotice();
-
-  // if($(target).attr('active') === 'true'){
-  //     $(target).attr('active','false');
-  //     $(target).html('<i class="fas fa-square"></i>')
-  // }else{
-  //     $(target).attr('active','true');
-  //     $(target).html('<i class="fas fa-check-square"></i>')
-  // }
-
-  // $.each($('.pageSettings .section.tags .tagsList .tag'), (index, tag) => {
-  //     let tagid = $(tag).attr('')
-  // })
-
   dbSnapshot.tags.forEach((tag) => {
     if (tag.active === true) {
       $(
@@ -423,403 +655,107 @@ function updateDiscordSettingsSection() {
     if (dbSnapshot == null) return;
     $(".pageSettings .section.discordIntegration").removeClass("hidden");
 
-    if (
-      dbSnapshot.pairingCode === undefined &&
-      dbSnapshot.discordId === undefined
-    ) {
+    if (dbSnapshot.discordId == undefined) {
       //show button
-      $(".pageSettings .section.discordIntegration .howto").addClass("hidden");
       $(".pageSettings .section.discordIntegration .buttons").removeClass(
         "hidden"
       );
       $(".pageSettings .section.discordIntegration .info").addClass("hidden");
-      $(".pageSettings .section.discordIntegration .code").addClass("hidden");
-    } else if (
-      dbSnapshot.pairingCode !== undefined &&
-      dbSnapshot.discordId === undefined
-    ) {
-      //show code
-      $(".pageSettings .section.discordIntegration .code .bottom").text(
-        dbSnapshot.pairingCode
-      );
-      $(".pageSettings .section.discordIntegration .howtocode").text(
-        dbSnapshot.pairingCode
-      );
-      $(".pageSettings .section.discordIntegration .howto").removeClass(
-        "hidden"
-      );
-      $(".pageSettings .section.discordIntegration .buttons").addClass(
-        "hidden"
-      );
-      $(".pageSettings .section.discordIntegration .info").addClass("hidden");
-      $(".pageSettings .section.discordIntegration .code").removeClass(
-        "hidden"
-      );
-    } else if (
-      dbSnapshot.pairingCode !== undefined &&
-      dbSnapshot.discordId !== undefined
-    ) {
-      $(".pageSettings .section.discordIntegration .howto").addClass("hidden");
+    } else {
       $(".pageSettings .section.discordIntegration .buttons").addClass(
         "hidden"
       );
       $(".pageSettings .section.discordIntegration .info").removeClass(
         "hidden"
       );
-      $(".pageSettings .section.discordIntegration .code").addClass("hidden");
     }
   }
 }
 
-function setActiveConfidenceModeButton() {
-  let cm = config.confidenceMode;
-  $(".pageSettings .section.confidenceMode .buttons .button").removeClass(
-    "active"
-  );
-  $(
-    `.pageSettings .section.confidenceMode .buttons .button[confidenceMode='${cm}']`
-  ).addClass("active");
-  if (cm !== "off") {
-    config.freedomMode = false;
-    setSettingsButton("freedomMode", config.freedomMode);
-  }
-}
-
-function setActiveFontFamilyButton() {
-  let font = config.fontFamily;
-  $(".pageSettings .section.fontFamily .buttons .button").removeClass("active");
-  $(
-    `.pageSettings .section.fontFamily .buttons .button[fontFamily='${font}']`
-  ).addClass("active");
-}
-
-//smooth caret
-$(".pageSettings .section.smoothCaret .buttons .button.on").click((e) => {
-  setSmoothCaret(true);
-  // showNotification('Smooth caret on', 1000);
-  setSettingsButton("smoothCaret", config.smoothCaret);
-});
-$(".pageSettings .section.smoothCaret .buttons .button.off").click((e) => {
-  setSmoothCaret(false);
-  // showNotification('Smooth caret off', 1000);
-  setSettingsButton("smoothCaret", config.smoothCaret);
-});
-
-//quick tab
-$(".pageSettings .section.quickTab .buttons .button.on").click((e) => {
-  setQuickTabMode(true);
-  // showNotification('Quick tab on', 1000);
-  setSettingsButton("quickTab", config.quickTab);
-});
-$(".pageSettings .section.quickTab .buttons .button.off").click((e) => {
-  setQuickTabMode(false);
-  // showNotification('Quick tab off', 1000);
-  setSettingsButton("quickTab", config.quickTab);
-});
-
-//live wpm
-$(".pageSettings .section.liveWpm .buttons .button.on").click((e) => {
-  config.showLiveWpm = true;
-  saveConfigToCookie();
-  // showNotification('Live WPM on', 1000);
-  setSettingsButton("liveWpm", config.showLiveWpm);
-});
-$(".pageSettings .section.liveWpm .buttons .button.off").click((e) => {
-  config.showLiveWpm = false;
-  saveConfigToCookie();
-  // showNotification('Live WPM off', 1000);
-  setSettingsButton("liveWpm", config.showLiveWpm);
-});
-
-//timer bar
-$(".pageSettings .section.timerBar .buttons .button.on").click((e) => {
-  config.showTimerBar = true;
-  saveConfigToCookie();
-  // showNotification('Timer bar on', 1000);
-  setSettingsButton("timerBar", config.showTimerBar);
-});
-$(".pageSettings .section.timerBar .buttons .button.off").click((e) => {
-  config.showTimerBar = false;
-  saveConfigToCookie();
-  // showNotification('Timer bar off', 1000);
-  setSettingsButton("timerBar", config.showTimerBar);
-});
-
-//keymap
-$(document).on("click", ".pageSettings .section.keymapMode .button", (e) => {
-  let mode = $(e.currentTarget).attr("keymapMode");
-  changeKeymapMode(mode);
-  restartTest();
-  setActiveKeymapModeButton();
-  setSettingsButton("liveWpm", config.showLiveWpm);
-});
-
-//keymap layouts
-$(document).on("click", ".pageSettings .section.keymapLayout .layout", (e) => {
-  let layout = $(e.currentTarget).attr("layout");
-  changeKeymapLayout(layout);
-  // showNotification('Keymap Layout changed', 1000);
-  restartTest();
-  setActiveKeymapLayoutButton();
-});
-
-//freedom mode
-$(".pageSettings .section.freedomMode .buttons .button.on").click((e) => {
-  setFreedomMode(true);
-  saveConfigToCookie();
-  // showNotification('Freedom mode on', 1000);
-  setSettingsButton("freedomMode", config.freedomMode);
-  config.confidenceMode = "off";
-  setActiveConfidenceModeButton();
-});
-$(".pageSettings .section.freedomMode .buttons .button.off").click((e) => {
-  setFreedomMode(false);
-  saveConfigToCookie();
-  // showNotification('Freedom mode off', 1000);
-  setSettingsButton("freedomMode", config.freedomMode);
-});
-
-// //max confidence
-// $(".pageSettings .section.maxConfidence .buttons .button.on").click((e) => {
-//   setMaxConfidence(true);
-//   saveConfigToCookie();
-//   // showNotification('Max confidence on', 1000);
-//   setSettingsButton("freedomMode", config.freedomMode);
-//   setSettingsButton("maxConfidence", config.maxConfidence);
-// });
-// $(".pageSettings .section.maxConfidence .buttons .button.off").click((e) => {
-//   setMaxConfidence(false);
-//   saveConfigToCookie();
-//   // showNotification('Max confidence off', 1000);
-//   setSettingsButton("freedomMode", config.freedomMode);
-//   setSettingsButton("maxConfidence", config.maxConfidence);
-// });
-
-//confidence
 $(document).on(
-  "click",
-  ".pageSettings .section.confidenceMode .button",
+  "focusout",
+  ".pageSettings .section.paceCaret input.customPaceCaretSpeed",
   (e) => {
-    let confidence = $(e.currentTarget).attr("confidenceMode");
-    setConfidenceMode(confidence);
-    setActiveConfidenceModeButton();
+    setPaceCaretCustomSpeed(
+      parseInt(
+        $(".pageSettings .section.paceCaret input.customPaceCaretSpeed").val()
+      )
+    );
   }
 );
 
-//keytips
-$(".pageSettings .section.keyTips .buttons .button.on").click((e) => {
-  setKeyTips(true);
-  // showNotification('Key tips on', 1000);
-  setSettingsButton("keyTips", config.showKeyTips);
-  if (config.showKeyTips) {
-    $(".pageSettings .tip").removeClass("hidden");
-  } else {
-    $(".pageSettings .tip").addClass("hidden");
+$(document).on(
+  "focusout",
+  ".pageSettings .section.minWpm input.customMinWpmSpeed",
+  (e) => {
+    setMinWpmCustomSpeed(
+      parseInt($(".pageSettings .section.minWpm input.customMinWpmSpeed").val())
+    );
   }
-});
-$(".pageSettings .section.keyTips .buttons .button.off").click((e) => {
-  setKeyTips(false);
-  // showNotification('Key tips off', 1000);
-  setSettingsButton("keyTips", config.showKeyTips);
-  if (config.showKeyTips) {
-    $(".pageSettings .tip").removeClass("hidden");
-  } else {
-    $(".pageSettings .tip").addClass("hidden");
-  }
-});
+);
 
-//keytips
-$(".pageSettings .section.discordDot .buttons .button.on").click((e) => {
-  setDiscordDot(true);
-  setSettingsButton("discordDot", config.showDiscordDot);
-});
-$(".pageSettings .section.discordDot .buttons .button.off").click((e) => {
-  setDiscordDot(false);
-  setSettingsButton("discordDot", config.showDiscordDot);
-});
-
-//themes
-// $(document).on("mouseover",".pageSettings .section.themes .theme", (e) => {
-//     let theme = $(e.currentTarget).attr('theme');
-//     previewTheme(theme);
-// })
-
-$(document).on("click", ".pageSettings .section.themes .theme", (e) => {
+$(document).on("click", ".pageSettings .section.themes .theme.button", (e) => {
   let theme = $(e.currentTarget).attr("theme");
-  setTheme(theme);
-  setActiveThemeButton();
+  if (!$(e.target).hasClass("favButton")) {
+    setTheme(theme);
+    setActiveThemeButton();
+    refreshThemeButtons();
+  }
 });
 
-// $(document).on("mouseleave",".pageSettings .section.themes", (e) => {
-//     setTheme(config.theme);
-// })
-
-//languages
-$(document).on("click", ".pageSettings .section.languages .language", (e) => {
-  let language = $(e.currentTarget).attr("language");
-  changeLanguage(language);
-  // showNotification('Language changed', 1000);
-  restartTest();
-  setActiveLanguageButton();
-});
-
-//layouts
-$(document).on("click", ".pageSettings .section.layouts .layout", (e) => {
-  console.log("clicked");
-  let layout = $(e.currentTarget).attr("layout");
-  changeLayout(layout);
-  // showNotification('Layout changed', 1000);
-  restartTest();
-  setActiveLayoutButton();
-});
-
-//fontsize
-$(document).on("click", ".pageSettings .section.fontSize .button", (e) => {
-  let fontSize = $(e.currentTarget).attr("fontsize");
-  changeFontSize(fontSize);
-  // showNotification('Font size changed', 1000);
-  setActiveFontSizeButton();
-});
-
-//difficulty
-$(document).on("click", ".pageSettings .section.difficulty .button", (e) => {
-  let difficulty = $(e.currentTarget).attr("difficulty");
-  setDifficulty(difficulty);
-  // showNotification('Difficulty changed', 1000);
-  setActiveDifficultyButton();
-});
-
-//caret style
-$(document).on("click", ".pageSettings .section.caretStyle .button", (e) => {
-  let caretStyle = $(e.currentTarget).attr("caret");
-  setCaretStyle(caretStyle);
-  // showNotification('Caret style updated', 1000);
-  setActiveCaretStyleButton();
-});
-
-//timer style
-$(document).on("click", ".pageSettings .section.timerStyle .button", (e) => {
-  let timerStyle = $(e.currentTarget).attr("timer");
-  setTimerStyle(timerStyle);
-  // showNotification('Timer style updated', 1000);
-  setActiveTimerStyleButton();
-});
-
-//timer color
-$(document).on("click", ".pageSettings .section.timerColor .button", (e) => {
-  let color = $(e.currentTarget).attr("color");
-  setTimerColor(color);
-  // showNotification('Timer style updated', 1000);
-  setActiveTimerColorButton();
-});
-
-//timer opacity
-$(document).on("click", ".pageSettings .section.timerOpacity .button", (e) => {
-  let opacity = $(e.currentTarget).attr("opacity");
-  setTimerOpacity(opacity);
-  // showNotification('Timer style updated', 1000);
-  setActiveTimerOpacityButton();
-});
-
-//blind mode
-$(".pageSettings .section.blindMode .buttons .button.on").click((e) => {
-  setBlindMode(true);
-  // showNotification('Blind mode on', 1000);
-  setSettingsButton("blindMode", config.blindMode);
-});
-$(".pageSettings .section.blindMode .buttons .button.off").click((e) => {
-  setBlindMode(false);
-  // showNotification('Blind mode off', 1000);
-  setSettingsButton("blindMode", config.blindMode);
-});
-
-//blind mode
-$(".pageSettings .section.quickEnd .buttons .button.on").click((e) => {
-  setQuickEnd(true);
-  // showNotification('Quick end on', 1000);
-  setSettingsButton("quickEnd", config.quickEnd);
-});
-$(".pageSettings .section.quickEnd .buttons .button.off").click((e) => {
-  setQuickEnd(false);
-  // showNotification('Quick end off', 1000);
-  setSettingsButton("quickEnd", config.quickEnd);
-});
-
-//flip test
-$(".pageSettings .section.flipTestColors .buttons .button.on").click((e) => {
-  setFlipTestColors(true);
-  // showNotification('Flip test colors on', 1000);
-  setSettingsButton("flipTestColors", config.flipTestColors);
-});
-$(".pageSettings .section.flipTestColors .buttons .button.off").click((e) => {
-  setFlipTestColors(false);
-  // showNotification('Flip test colors off', 1000);
-  setSettingsButton("flipTestColors", config.flipTestColors);
-});
-
-//extra color
-$(".pageSettings .section.colorfulMode .buttons .button.on").click((e) => {
-  setColorfulMode(true);
-  // showNotification('Colorful mode on', 1000);
-  setSettingsButton("colorfulMode", config.colorfulMode);
-});
-$(".pageSettings .section.colorfulMode .buttons .button.off").click((e) => {
-  setColorfulMode(false);
-  // showNotification('Colorful mode off', 1000);
-  setSettingsButton("colorfulMode", config.colorfulMode);
-});
-
-//extra color
-$(".pageSettings .section.randomTheme .buttons .button.on").click((e) => {
-  setRandomTheme(true);
-  // showNotification('Colorful mode on', 1000);
-  setSettingsButton("randomTheme", config.randomTheme);
-});
-$(".pageSettings .section.randomTheme .buttons .button.off").click((e) => {
-  setRandomTheme(false);
-  // showNotification('Colorful mode off', 1000);
-  setSettingsButton("randomTheme", config.randomTheme);
-});
-
-//stop on error
-$(".pageSettings .section.stopOnError .buttons .button.on").click((e) => {
-  setStopOnError(true);
-  setSettingsButton("stopOnError", config.stopOnError);
-});
-$(".pageSettings .section.stopOnError .buttons .button.off").click((e) => {
-  setStopOnError(false);
-  setSettingsButton("stopOnError", config.stopOnError);
-});
-
-//showAllLines
-$(".pageSettings .section.showAllLines .buttons .button.on").click((e) => {
-  setShowAllLines(true);
-  setSettingsButton("showAllLines", config.showAllLines);
-});
-$(".pageSettings .section.showAllLines .buttons .button.off").click((e) => {
-  setShowAllLines(false);
-  setSettingsButton("showAllLines", config.showAllLines);
-});
+$(document).on(
+  "click",
+  ".pageSettings .section.themes .theme .favButton",
+  (e) => {
+    let theme = $(e.currentTarget).parents(".theme.button").attr("theme");
+    toggleFavouriteTheme(theme);
+  }
+);
 
 //discord
 $(
   ".pageSettings .section.discordIntegration .buttons .generateCodeButton"
 ).click((e) => {
   showBackgroundLoader();
-  generatePairingCode({ uid: firebase.auth().currentUser.uid }).then((ret) => {
-    hideBackgroundLoader();
-    if (ret.data.status === 1 || ret.data.status === 2) {
-      dbSnapshot.pairingCode = ret.data.pairingCode;
-      $(".pageSettings .section.discordIntegration .code .bottom").text(
-        ret.data.pairingCode
-      );
-      $(".pageSettings .section.discordIntegration .howtocode").text(
-        ret.data.pairingCode
-      );
-      updateDiscordSettingsSection();
-    }
-  });
+  generatePairingCode({ uid: firebase.auth().currentUser.uid })
+    .then((ret) => {
+      hideBackgroundLoader();
+      if (ret.data.status === 1 || ret.data.status === 2) {
+        dbSnapshot.pairingCode = ret.data.pairingCode;
+        $(".pageSettings .section.discordIntegration .code .bottom").text(
+          ret.data.pairingCode
+        );
+        $(".pageSettings .section.discordIntegration .howtocode").text(
+          ret.data.pairingCode
+        );
+        updateDiscordSettingsSection();
+      }
+    })
+    .catch((e) => {
+      hideBackgroundLoader();
+      showNotification("Something went wrong. Error: " + e.message, 4000);
+    });
 });
+
+$(".pageSettings .section.discordIntegration #unlinkDiscordButton").click(
+  (e) => {
+    if (confirm("Are you sure?")) {
+      showBackgroundLoader();
+      unlinkDiscord({ uid: firebase.auth().currentUser.uid }).then((ret) => {
+        hideBackgroundLoader();
+        console.log(ret);
+        if (ret.data.status === 1) {
+          dbSnapshot.discordId = null;
+          showNotification("Accounts unlinked", 2000);
+          updateDiscordSettingsSection();
+        } else {
+          showNotification("Something went wrong: " + ret.data.message, 5000);
+          updateDiscordSettingsSection();
+        }
+      });
+    }
+  }
+);
 
 //funbox
 $(document).on("click", ".pageSettings .section.funbox .button", (e) => {
@@ -829,13 +765,6 @@ $(document).on("click", ".pageSettings .section.funbox .button", (e) => {
   setActiveFunboxButton();
 });
 
-//fontfamily
-$(document).on("click", ".pageSettings .section.fontFamily .button", (e) => {
-  let font = $(e.currentTarget).attr("fontFamily");
-  setFontFamily(font);
-  setActiveFontFamilyButton();
-});
-
 //tags
 $(document).on(
   "click",
@@ -843,13 +772,6 @@ $(document).on(
   (e) => {
     let target = e.currentTarget;
     let tagid = $(target).parent(".tag").attr("id");
-    // if($(target).attr('active') === 'true'){
-    //     $(target).attr('active','false');
-    //     $(target).html('<i class="fas fa-square"></i>')
-    // }else{
-    //     $(target).attr('active','true');
-    //     $(target).html('<i class="fas fa-check-square"></i>')
-    // }
     toggleTag(tagid);
     showActiveTags();
   }
@@ -892,49 +814,40 @@ const colorVars = [
   "--colorful-error-extra-color",
 ];
 
-$(".tab").click((e) => {
-  $(".tab").removeClass("active");
+$(".pageSettings .section.themes .tabs .button").click((e) => {
+  $(".pageSettings .section.themes .tabs .button").removeClass("active");
   var $target = $(e.currentTarget);
   $target.addClass("active");
   setCustomThemeInputs();
   if ($target.attr("tab") == "preset") {
-    setCustomTheme(false);
+    setCustomTheme(false, true);
     applyCustomThemeColors();
-    // $('[tabContent="custom"]').removeClass("reveal");
-    // $('[tabContent="preset"]').addClass("reveal");
     swapElements(
-      $('.pageSettings [tabContent="custom"]'),
-      $('.pageSettings [tabContent="preset"]'),
+      $('.pageSettings .section.themes .tabContainer [tabContent="custom"]'),
+      $('.pageSettings .section.themes .tabContainer [tabContent="preset"]'),
       250
     );
   } else {
-    setCustomTheme(true);
+    setCustomTheme(true, true);
     applyCustomThemeColors();
     swapElements(
-      $('.pageSettings [tabContent="preset"]'),
-      $('.pageSettings [tabContent="custom"]'),
+      $('.pageSettings .section.themes .tabContainer [tabContent="preset"]'),
+      $('.pageSettings .section.themes .tabContainer [tabContent="custom"]'),
       250
     );
-
-    // $('[tabContent="preset"]').removeClass("reveal");
-    // $('[tabContent="custom"]').addClass("reveal");
   }
 });
 
-$("[type='color']").on("input", (e) => {
+$(
+  ".pageSettings .section.themes .tabContainer .customTheme input[type=color]"
+).on("input", (e) => {
   setCustomTheme(true, true);
   let $colorVar = $(e.currentTarget).attr("id");
   let $pickedColor = $(e.currentTarget).val();
 
   document.documentElement.style.setProperty($colorVar, $pickedColor);
-  $("#" + $colorVar).attr("value", $pickedColor);
-  $("[for=" + $colorVar + "]").text($pickedColor);
-
-  // config.customThemeColors[colorVars.indexOf($colorVar)] = $pickedColor
-});
-
-$(".colorPicker").on("change", (e) => {
-  // Save a color once picked
+  $(".colorPicker #" + $colorVar).attr("value", $pickedColor);
+  $(".colorPicker [for=" + $colorVar + "]").text($pickedColor);
 });
 
 $(".pageSettings .saveCustomThemeButton").click((e) => {
@@ -947,4 +860,152 @@ $(".pageSettings .saveCustomThemeButton").click((e) => {
   );
   setCustomThemeColors(save);
   showNotification("Custom theme colors saved", 1000);
+});
+
+$(".pageSettings #loadCustomColorsFromPreset").click((e) => {
+  previewTheme(config.theme);
+  colorVars.forEach((e) => {
+    document.documentElement.style.setProperty(e, "");
+  });
+
+  setTimeout((fn) => {
+    refreshThemeColorObject();
+    colorVars.forEach((colorName) => {
+      let color;
+      if (colorName === "--bg-color") {
+        color = themeColors.bg;
+      } else if (colorName === "--main-color") {
+        color = themeColors.main;
+      } else if (colorName === "--sub-color") {
+        color = themeColors.sub;
+      } else if (colorName === "--caret-color") {
+        color = themeColors.caret;
+      } else if (colorName === "--text-color") {
+        color = themeColors.text;
+      } else if (colorName === "--error-color") {
+        color = themeColors.error;
+      } else if (colorName === "--error-extra-color") {
+        color = themeColors.errorExtra;
+      } else if (colorName === "--colorful-error-color") {
+        color = themeColors.colorfulError;
+      } else if (colorName === "--colorful-error-extra-color") {
+        color = themeColors.colorfulErrorExtra;
+      }
+      $(".colorPicker #" + colorName).attr("value", color);
+      $(".colorPicker #" + colorName).val(color);
+      $(".colorPicker [for=" + colorName + "]").text(color);
+    });
+  }, 250);
+});
+
+$("#resetSettingsButton").click((e) => {
+  if (confirm("Press OK to confirm.")) {
+    resetConfig();
+    setTimeout(() => {
+      location.reload();
+    }, 1000);
+  }
+});
+
+$("#exportSettingsButton").click((e) => {
+  let configJSON = JSON.stringify(config);
+  navigator.clipboard.writeText(configJSON).then(
+    function () {
+      showNotification("JSON Copied to clipboard", 2000);
+    },
+    function (err) {
+      showNotification(
+        "Something went wrong when copying the settings JSON: " + err,
+        5000
+      );
+    }
+  );
+});
+
+function showSettingsImport() {
+  if ($("#settingsImportWrapper").hasClass("hidden")) {
+    $("#settingsImportWrapper")
+      .stop(true, true)
+      .css("opacity", 0)
+      .removeClass("hidden")
+      .animate({ opacity: 1 }, 100, (e) => {
+        $("#settingsImportWrapper input").focus();
+        $("#settingsImportWrapper input").select();
+        $("#settingsImportWrapper input").focus();
+      });
+  }
+}
+
+function hideSettingsImport() {
+  if (!$("#settingsImportWrapper").hasClass("hidden")) {
+    if ($("#settingsImportWrapper input").val() !== "") {
+      try {
+        applyConfig(JSON.parse($("#settingsImportWrapper input").val()));
+      } catch (e) {
+        showNotification(
+          "An error occured while importing settings: " + e,
+          5000
+        );
+      }
+      saveConfigToCookie();
+      updateSettingsPage();
+    }
+    $("#settingsImportWrapper")
+      .stop(true, true)
+      .css("opacity", 1)
+      .animate({ opacity: 0 }, 100, (e) => {
+        $("#settingsImportWrapper").addClass("hidden");
+      });
+  }
+}
+
+$("#importSettingsButton").click((e) => {
+  showSettingsImport();
+});
+
+$("#settingsImport .button").click((e) => {
+  hideSettingsImport();
+});
+
+$("#settingsImportWrapper").click((e) => {
+  if ($(e.target).attr("id") === "settingsImportWrapper") {
+    hideSettingsImport();
+  }
+});
+
+$(".pageSettings .sectionGroupTitle").click((e) => {
+  let group = $(e.currentTarget).attr("group");
+  $(`.pageSettings .settingsGroup.${group}`)
+    .stop(true, true)
+    .slideToggle(250)
+    .toggleClass("slideup");
+  if ($(`.pageSettings .settingsGroup.${group}`).hasClass("slideup")) {
+    $(`.pageSettings .sectionGroupTitle[group=${group}] .fas`)
+      .stop(true, true)
+      .animate(
+        {
+          deg: -90,
+        },
+        {
+          duration: 250,
+          step: function (now) {
+            $(this).css({ transform: "rotate(" + now + "deg)" });
+          },
+        }
+      );
+  } else {
+    $(`.pageSettings .sectionGroupTitle[group=${group}] .fas`)
+      .stop(true, true)
+      .animate(
+        {
+          deg: 0,
+        },
+        {
+          duration: 250,
+          step: function (now) {
+            $(this).css({ transform: "rotate(" + now + "deg)" });
+          },
+        }
+      );
+  }
 });
