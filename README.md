@@ -3,7 +3,7 @@ Monkey-type is a minimalistic, customisable typing test, featuring many test mod
 
 # features
 - minimalistic design without ads
-- look at what you are typing
+- being able to see what you're typing
 - focus mode
 - different test modes
 - punctuation mode
